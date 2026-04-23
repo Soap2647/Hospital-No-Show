@@ -1,0 +1,142 @@
+@inject MudBlazor.IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.Psychology" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Risk Analiz Detayı</MudText>
+            @if (Appointment?.IsHighRisk == true)
+            {
+                <MudChip T="string" Color="Color.Error" Size="Size.Small" Variant="Variant.Filled">
+                    HIGH RISK
+                </MudChip>
+            }
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (Appointment == null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <!-- Hasta Bilgisi -->
+            <MudPaper Class="pa-4 mb-4" Elevation="0" Style="background:#f5f7fa;border-radius:8px">
+                <div class="d-flex align-center gap-3">
+                    <MudAvatar Color="Color.Primary" Size="Size.Large">
+                        @Appointment.PatientFullName.FirstOrDefault()
+                    </MudAvatar>
+                    <div>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600">
+                            @Appointment.PatientFullName
+                        </MudText>
+                        <MudText Typo="Typo.body2" Color="Color.Secondary">
+                            @Appointment.AppointmentDate.ToString("dd MMMM yyyy",
+                                new System.Globalization.CultureInfo("tr-TR"))
+                            — @Appointment.AppointmentTime.ToString("HH:mm")
+                            · @Appointment.PolyclinicName
+                        </MudText>
+                    </div>
+                </div>
+            </MudPaper>
+
+            @if (Appointment.NoShowRisk != null)
+            {
+                var risk = Appointment.NoShowRisk;
+
+                <!-- Risk Skoru Büyük Gösterge -->
+                <div class="d-flex justify-center mb-5">
+                    <div class="text-center">
+                        <RiskGauge Score="@risk.RiskScore" Size="100" />
+                        <MudChip T="string" Class="mt-2"
+                                 Color="@GetRiskChipColor(risk.RiskScore)"
+                                 Variant="Variant.Filled">
+                            @risk.RiskLevel Risk
+                        </MudChip>
+                    </div>
+                </div>
+
+                <!-- Faktör Dağılımı -->
+                <MudText Typo="Typo.subtitle2" Class="mb-3">
+                    <MudIcon Icon="@Icons.Material.Filled.BarChart" Size="Size.Small" Class="mr-1" />
+                    Risk Faktörleri
+                </MudText>
+                <div class="d-flex flex-column gap-2 mb-4">
+                    @RiskFactor("Geçmiş Gelmeme Oranı", risk.RiskScore * 0.35, "Hastanın önceki no-show geçmişi")
+                    @RiskFactor("Hastane Uzaklığı", risk.RiskScore * 0.12, "Km cinsinden mesafenin etkisi")
+                    @RiskFactor("Randevu Yoğunluğu", risk.RiskScore * 0.10, "Günün doluluk oranı")
+                    @RiskFactor("Yaş Grubu", risk.RiskScore * 0.10, "Yaşa bağlı risk faktörü")
+                    @RiskFactor("Randevu Saati", risk.RiskScore * 0.10, "Sabah erken / akşam saati riski")
+                </div>
+
+                <!-- SMS & Hava Durumu -->
+                <MudGrid>
+                    <MudItem xs="6">
+                        <MudPaper Class="pa-3 text-center" Elevation="1" Style="border-radius:8px">
+                            <MudIcon Icon="@Icons.Material.Filled.Sms" Color="Color.Info" />
+                            <MudText Typo="Typo.caption" Class="d-block">SMS Durumu</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:600">@risk.SmsResponse</MudText>
+                        </MudPaper>
+                    </MudItem>
+                    <MudItem xs="6">
+                        <MudPaper Class="pa-3 text-center" Elevation="1" Style="border-radius:8px">
+                            <MudIcon Icon="@Icons.Material.Filled.WbSunny" Color="Color.Warning" />
+                            <MudText Typo="Typo.caption" Class="d-block">Hava Durumu</MudText>
+                            <MudText Typo="Typo.body2" Style="font-weight:600">@risk.WeatherCondition</MudText>
+                        </MudPaper>
+                    </MudItem>
+                </MudGrid>
+
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-3 d-block text-center">
+                    Son hesaplama: @risk.CalculatedAt.ToString("dd.MM.yyyy HH:mm")
+                </MudText>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Info">Bu randevu için risk analizi henüz hesaplanmamış.</MudAlert>
+            }
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Outlined">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public AppointmentResponse? Appointment { get; set; }
+
+    private void Close() => MudDialog.Close();
+
+    private RenderFragment RiskFactor(string label, double weight, string tooltip) => __builder =>
+    {
+        <div>
+            <div class="d-flex justify-space-between mb-1">
+                <MudTooltip Text="@tooltip">
+                    <MudText Typo="Typo.caption">@label</MudText>
+                </MudTooltip>
+                <MudText Typo="Typo.caption" Style="font-weight:600">
+                    @($"{weight:F2}")
+                </MudText>
+            </div>
+            <MudProgressLinear Value="@(weight * 100)"
+                               Color="@GetProgressColor(weight)"
+                               Rounded="true" Size="Size.Small" />
+        </div>;
+    };
+
+    private static Color GetRiskChipColor(double score) => score switch
+    {
+        > 0.80 => Color.Error,
+        > 0.60 => Color.Warning,
+        > 0.30 => Color.Info,
+        _ => Color.Success
+    };
+
+    private static Color GetProgressColor(double value) => value switch
+    {
+        > 0.08 => Color.Error,
+        > 0.05 => Color.Warning,
+        _ => Color.Info
+    };
+}

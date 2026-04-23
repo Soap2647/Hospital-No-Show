@@ -1,0 +1,320 @@
+@page "/login"
+@layout EmptyLayout
+@inject AuthApiService AuthService
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+
+<PageTitle>Giriş Yap | Hastane Randevu Sistemi</PageTitle>
+
+<MudThemeProvider Theme="_theme" />
+<MudSnackbarProvider />
+
+<div class="login-wrapper">
+    <!-- Arka plan desen efekti -->
+    <div class="login-bg-pattern"></div>
+
+    <div class="login-card-container">
+
+        <!-- Logo & Başlık -->
+        <div class="login-header">
+            <div class="login-logo">
+                <img src="images/logo.png" style="width:100%;height:100%;object-fit:contain;" alt="Logo" />
+            </div>
+            <MudText Typo="Typo.h4" Class="mt-3 login-title">Hastane Randevu Sistemi</MudText>
+            <MudText Typo="Typo.body2" Class="mt-1 login-subtitle">
+                No-Show Tahmin &amp; Yönetim Platformu
+            </MudText>
+        </div>
+
+        <!-- Rol Seçimi -->
+        <div class="role-tabs">
+            @foreach (var role in _roles)
+            {
+                <MudButton Variant="@(_selectedRole == role.Key ? Variant.Filled : Variant.Text)"
+                           Size="Size.Small"
+                           Class="@GetRoleTabClass(role.Key)"
+                           StartIcon="@role.Value.Icon"
+                           OnClick="@(() => SelectRole(role.Key))">
+                    @role.Value.Label
+                </MudButton>
+            }
+        </div>
+
+        <!-- Login Formu -->
+        <MudCard Class="login-card" Elevation="0">
+            <MudCardContent Class="pa-6">
+                <EditForm Model="_model" OnValidSubmit="HandleLoginAsync">
+                    <DataAnnotationsValidator />
+
+                    <MudTextField T="string"
+                                  Label="E-posta Adresi"
+                                  @bind-Value="_model.Email"
+                                  InputType="InputType.Email"
+                                  Adornment="Adornment.Start"
+                                  AdornmentIcon="@Icons.Material.Filled.Email"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-4"
+                                  Immediate="true"
+                                  For="@(() => _model.Email)" />
+
+                    <MudTextField T="string"
+                                  Label="Şifre"
+                                  @bind-Value="_model.Password"
+                                  InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                                  Adornment="Adornment.End"
+                                  AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                                  OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                                  Variant="Variant.Outlined"
+                                  Class="mb-5"
+                                  For="@(() => _model.Password)" />
+
+                    @if (!string.IsNullOrEmpty(_errorMessage))
+                    {
+                        <MudAlert Severity="Severity.Error" Class="mb-4" Dense="true">
+                            @_errorMessage
+                        </MudAlert>
+                    }
+
+                    <MudButton ButtonType="ButtonType.Submit"
+                               Variant="Variant.Filled"
+                               FullWidth="true"
+                               Size="Size.Large"
+                               Disabled="_isLoading"
+                               Class="login-btn">
+                        @if (_isLoading)
+                        {
+                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                            <span>Giriş yapılıyor...</span>
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Login" Class="mr-2" />
+                            <span>@_roles[_selectedRole].Label Olarak Giriş Yap</span>
+                        }
+                    </MudButton>
+                </EditForm>
+
+                <MudDivider Class="my-4" />
+
+                <!-- Kayıt Ol Linki -->
+                <div class="d-flex justify-center mb-3">
+                    <MudText Typo="Typo.body2">Henüz hesabınız yok mu?</MudText>
+                    <MudLink Href="/register" Color="Color.Primary" Class="ml-2" Style="font-weight:600;">Kayıt Olun</MudLink>
+                </div>
+
+            </MudCardContent>
+        </MudCard>
+    </div>
+</div>
+
+<style>
+    .login-wrapper {
+        min-height: 100vh;
+        background: linear-gradient(145deg, #060E18 0%, #0D1B2A 45%, #1A2440 75%, #3D0000 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Dekoratif arka plan paterni */
+    .login-bg-pattern {
+        position: absolute;
+        inset: 0;
+        background-image:
+            radial-gradient(circle at 20% 20%, rgba(198,40,40,0.12) 0%, transparent 50%),
+            radial-gradient(circle at 80% 80%, rgba(13,27,42,0.8) 0%, transparent 50%),
+            radial-gradient(circle at 50% 10%, rgba(198,40,40,0.06) 0%, transparent 40%);
+        pointer-events: none;
+    }
+
+    .login-card-container {
+        width: 100%;
+        max-width: 440px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.2rem;
+        position: relative;
+        z-index: 1;
+    }
+
+    .login-header {
+        text-align: center;
+    }
+
+    .login-logo {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 88px;
+        height: 88px;
+    }
+
+    .login-title {
+        color: #ffffff !important;
+        font-weight: 800 !important;
+        letter-spacing: -.5px;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
+
+    .login-subtitle {
+        color: rgba(255,255,255,0.6) !important;
+    }
+
+    .role-tabs {
+        display: flex;
+        gap: 0.4rem;
+        background: rgba(255,255,255,0.07);
+        backdrop-filter: blur(12px);
+        padding: 0.4rem;
+        border-radius: 12px;
+        width: 100%;
+        justify-content: center;
+        border: 1px solid rgba(255,255,255,0.1);
+    }
+
+    .role-tab-btn {
+        flex: 1;
+        border-radius: 8px !important;
+        transition: all .2s ease !important;
+    }
+
+    .role-tab-active {
+        background: #C62828 !important;
+        color: #ffffff !important;
+        box-shadow: 0 4px 12px rgba(198,40,40,0.4) !important;
+    }
+
+    .role-tab-inactive {
+        color: rgba(255,255,255,0.8) !important;
+    }
+
+    .role-tab-inactive:hover {
+        background: rgba(255,255,255,0.12) !important;
+    }
+
+    .login-card {
+        width: 100%;
+        border-radius: 20px !important;
+        background: rgba(255,255,255,0.97) !important;
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.4) !important;
+    }
+
+    .login-btn {
+        height: 50px;
+        border-radius: 10px !important;
+        font-size: 1rem !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #C62828 0%, #8B0000 100%) !important;
+        box-shadow: 0 4px 16px rgba(198,40,40,0.4) !important;
+        letter-spacing: .03em;
+        color: #fff !important;
+        transition: all .2s ease !important;
+    }
+
+    .login-btn:hover:not([disabled]) {
+        box-shadow: 0 6px 20px rgba(198,40,40,0.55) !important;
+        transform: translateY(-1px);
+    }
+
+    .demo-info {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .demo-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+</style>
+
+@code {
+    private readonly LoginModel _model = new();
+    private bool _isLoading;
+    private bool _showPassword;
+    private string _errorMessage = string.Empty;
+    private string _selectedRole = "admin";
+
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary   = "#C62828",
+            Secondary = "#0D1B2A",
+            Error     = "#C62828"
+        }
+    };
+
+    private readonly Dictionary<string, (string Label, string Icon)> _roles = new()
+    {
+        ["admin"]   = ("Admin",  Icons.Material.Filled.AdminPanelSettings),
+        ["doctor"]  = ("Doktor", Icons.Material.Filled.MedicalServices),
+        ["patient"] = ("Hasta",  Icons.Material.Filled.Person)
+    };
+
+    private string GetRoleTabClass(string roleKey)
+        => _selectedRole == roleKey ? "role-tab-btn role-tab-active" : "role-tab-btn role-tab-inactive";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await AuthService.GetCurrentSessionAsync();
+        if (session != null)
+            NavigateByRole(session.PrimaryRole);
+    }
+
+    private void SelectRole(string role)
+    {
+        _selectedRole = role;
+        _errorMessage = string.Empty;
+
+        _model.Email = role switch
+        {
+            "admin"   => "admin@hospital.com",
+            "doctor"  => "handenur.yilmaz@hospital.com",
+            "patient" => "mertyasin.yilmaz@test.com",
+            _         => string.Empty
+        };
+    }
+
+    private async Task HandleLoginAsync()
+    {
+        _isLoading = true;
+        _errorMessage = string.Empty;
+
+        var result = await AuthService.LoginAsync(_model);
+
+        if (result.IsSuccess && result.Data is not null)
+        {
+            var roles = result.Data.Roles;
+            var primaryRole = roles.Contains("Admin")  ? "admin"
+                            : roles.Contains("Doctor") ? "doctor" : "patient";
+
+            Snackbar.Add($"Hoş geldiniz, {result.Data.FullName}!", Severity.Success);
+            NavigateByRole(primaryRole);
+        }
+        else
+        {
+            _errorMessage = result.ErrorMessage ?? "Giriş başarısız. Lütfen bilgilerinizi kontrol edin.";
+        }
+
+        _isLoading = false;
+    }
+
+    private void NavigateByRole(string role)
+    {
+        var destination = role.ToLower() switch
+        {
+            "admin"  => "/admin/dashboard",
+            "doctor" => "/doctor/panel",
+            _        => "/patient/panel"
+        };
+        Nav.NavigateTo(destination);
+    }
+}

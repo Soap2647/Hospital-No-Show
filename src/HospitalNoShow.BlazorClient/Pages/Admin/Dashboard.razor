@@ -1,0 +1,395 @@
+@page "/admin/dashboard"
+@attribute [Authorize]
+@inject AppointmentApiService AppointmentService
+@inject PatientApiService PatientService
+@inject AuthApiService AuthService
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@using HospitalNoShow.BlazorClient.Shared.Components
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Admin Dashboard | Hastane Randevu</PageTitle>
+
+<!-- ─── Başlık ─────────────────────────────────────────────────────────── -->
+<MudText Typo="Typo.h4" Class="mb-1">
+    <MudIcon Icon="@Icons.Material.Filled.Dashboard" Class="mb-1 mr-2" />
+    Admin Dashboard
+</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
+    @DateTime.Now.ToString("dd MMMM yyyy, dddd", new System.Globalization.CultureInfo("tr-TR"))
+</MudText>
+
+@if (_loading)
+{
+    <div class="d-flex justify-center mt-10">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Color="Color.Primary" />
+    </div>
+}
+else if (_loadError != null)
+{
+    <MudAlert Severity="Severity.Error" Class="mt-4" Icon="@Icons.Material.Filled.CloudOff">
+        <MudText Typo="Typo.subtitle2">Veri yuklenemedi</MudText>
+        <MudText Typo="Typo.body2" Class="mt-1">@_loadError</MudText>
+        <MudText Typo="Typo.caption" Class="mt-2" Color="Color.Secondary">
+            Backend: http://localhost:5048 adresinde calisiyor olmali.
+        </MudText>
+    </MudAlert>
+}
+else
+{
+    <!-- ─── KPI Kartları ───────────────────────────────────────────────── -->
+    <MudGrid Class="mb-6">
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Title="Toplam Randevu" Value="@_stats.TotalAppointments.ToString()"
+                      Icon="@Icons.Material.Filled.CalendarToday" Color="Color.Primary"
+                      SubText="@($"Bugün: {_stats.TodayAppointments}")" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Title="Yüksek Risk" Value="@_stats.HighRiskCount.ToString()"
+                      Icon="@Icons.Material.Filled.Warning" Color="Color.Error"
+                      SubText="Risk > 0.70" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Title="No-Show Oranı" Value="@($"{_stats.NoShowRate:F1}%")"
+                      Icon="@Icons.Material.Filled.PersonOff" Color="Color.Warning"
+                      SubText="Son 30 gün" />
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <StatCard Title="Toplam Hasta" Value="@_stats.TotalPatients.ToString()"
+                      Icon="@Icons.Material.Filled.People" Color="Color.Success"
+                      SubText="@($"Riskli: {_stats.HighRiskPatients}")" />
+        </MudItem>
+    </MudGrid>
+
+    <!-- ─── Grafikler ─────────────────────────────────────────────────── -->
+    <MudGrid Class="mb-6">
+        <!-- Poliklinik Bazlı No-Show -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.BarChart" Class="mr-1" />
+                            Poliklinik Bazlı No-Show Oranları
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                    @if (_polyclinicLabels.Length > 0)
+                    {
+                        <MudChart ChartType="ChartType.Bar"
+                                  ChartSeries="@_polyclinicSeries"
+                                  XAxisLabels="@_polyclinicLabels"
+                                  Width="100%"
+                                  Height="250px"
+                                  ChartOptions="@(new ChartOptions { YAxisTicks = 5, ChartPalette = ["#E64A45","#F57C00","#388E3C","#4A90E2","#9c27b0"] })" />
+                    }
+                    else
+                    {
+                        <div class="d-flex justify-center align-center" style="height:250px">
+                            <MudText Color="Color.Secondary">Henüz randevu verisi yok.</MudText>
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+
+        <!-- Randevu Durum Dağılımı -->
+        <MudItem xs="12" md="6">
+            <MudCard Elevation="2">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">
+                            <MudIcon Icon="@Icons.Material.Filled.PieChart" Class="mr-1" />
+                            Randevu Durum Dağılımı
+                        </MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent Class="d-flex justify-center">
+                    @if (_statusData.Any(v => v > 0))
+                    {
+                        <MudChart ChartType="ChartType.Donut"
+                                  InputData="@_statusData"
+                                  InputLabels="@_statusLabels"
+                                  Width="250px"
+                                  Height="250px"
+                                  ChartOptions="@(new ChartOptions { ChartPalette = ["#388E3C","#E64A45","#F57C00","#94A3B8"] })" />
+                    }
+                    else
+                    {
+                        <div class="d-flex justify-center align-center" style="height:250px">
+                            <MudText Color="Color.Secondary">Henüz randevu verisi yok.</MudText>
+                        </div>
+                    }
+                </MudCardContent>
+            </MudCard>
+        </MudItem>
+    </MudGrid>
+
+    <!-- ─── Randevu Tablosu ───────────────────────────────────────────── -->
+    <MudCard Elevation="2">
+        <MudCardHeader>
+            <CardHeaderContent>
+                <MudText Typo="Typo.h6">
+                    <MudIcon Icon="@Icons.Material.Filled.TableChart" Class="mr-1" />
+                    Tüm Randevular
+                </MudText>
+            </CardHeaderContent>
+            <CardHeaderActions>
+                <MudTextField T="string" Placeholder="Hasta ara..." Adornment="Adornment.Start"
+                              AdornmentIcon="@Icons.Material.Filled.Search" Variant="Variant.Outlined"
+                              Size="Size.Small" @bind-Value="_searchText"
+                              DebounceInterval="300" Class="mr-2" Style="width:220px" />
+                <MudToggleIconButton @bind-Toggled="_showHighRiskOnly"
+                                     Icon="@Icons.Material.Filled.Visibility"
+                                     ToggledIcon="@Icons.Material.Filled.VisibilityOff"
+                                     Color="Color.Default" ToggledColor="Color.Error"
+                                     Title="Sadece Yüksek Risk" />
+            </CardHeaderActions>
+        </MudCardHeader>
+        <MudCardContent Class="pa-0">
+            <MudDataGrid T="AppointmentResponse"
+                         Items="@FilteredAppointments"
+                         SortMode="SortMode.Multiple"
+                         Filterable="false"
+                         Dense="true"
+                         Striped="true"
+                         Hover="true"
+                         RowClick="@OnRowClick">
+                <Columns>
+                    <PropertyColumn Property="x => x.AppointmentDate" Title="Tarih/Saat"
+                                    Format="dd.MM.yyyy" />
+                    <TemplateColumn Title="Saat">
+                        <CellTemplate>
+                            <MudText Typo="Typo.body2">@context.Item.AppointmentTime.ToString("HH:mm")</MudText>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <PropertyColumn Property="x => x.PatientFullName" Title="Hasta" />
+                    <PropertyColumn Property="x => x.DoctorFullName" Title="Doktor" />
+                    <PropertyColumn Property="x => x.PolyclinicName" Title="Poliklinik" />
+                    <TemplateColumn Title="Durum">
+                        <CellTemplate>
+                            <MudChip T="string" Size="Size.Small"
+                                     Color="@GetStatusColor(context.Item.Status)"
+                                     Variant="Variant.Filled">
+                                @context.Item.StatusDisplay
+                            </MudChip>
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="Risk Skoru" SortBy="x => x.NoShowRisk?.RiskScore ?? 0">
+                        <CellTemplate>
+                            @if (context.Item.NoShowRisk != null)
+                            {
+                                <div class="d-flex align-center gap-2">
+                                    <MudProgressLinear Value="@(context.Item.NoShowRisk.RiskScore * 100)"
+                                                       Color="@GetRiskColor(context.Item.NoShowRisk.RiskScore)"
+                                                       Rounded="true" Size="Size.Small"
+                                                       Style="width:70px" />
+                                    <MudChip T="string" Size="Size.Small"
+                                             Color="@GetRiskColor(context.Item.NoShowRisk.RiskScore)"
+                                             Variant="@(context.Item.IsHighRisk ? Variant.Filled : Variant.Outlined)">
+                                        @($"{context.Item.NoShowRisk.RiskScore:F2}")
+                                        @if (context.Item.IsHighRisk)
+                                        {
+                                            <MudIcon Icon="@Icons.Material.Filled.PriorityHigh"
+                                                     Size="Size.Small" Class="ml-1" />
+                                        }
+                                    </MudChip>
+                                </div>
+                            }
+                            else
+                            {
+                                <MudText Typo="Typo.caption" Color="Color.Secondary">—</MudText>
+                            }
+                        </CellTemplate>
+                    </TemplateColumn>
+                    <TemplateColumn Title="İşlem" Sortable="false">
+                        <CellTemplate>
+                            <MudIconButton Icon="@Icons.Material.Filled.Visibility"
+                                           Size="Size.Small" Color="Color.Primary"
+                                           Title="Detay"
+                                           OnClick="@(() => ShowDetailAsync(context.Item))" />
+                        </CellTemplate>
+                    </TemplateColumn>
+                </Columns>
+                <PagerContent>
+                    <MudDataGridPager T="AppointmentResponse" />
+                </PagerContent>
+            </MudDataGrid>
+        </MudCardContent>
+    </MudCard>
+}
+
+@code {
+    private bool _loading = true;
+    private string? _loadError;
+    private bool _showHighRiskOnly;
+    private string _searchText = string.Empty;
+    private List<AppointmentResponse> _appointments = [];
+
+    // Chart data
+    private List<ChartSeries> _polyclinicSeries = [];
+    private string[] _polyclinicLabels = [];
+    private double[] _statusData = [];
+    private string[] _statusLabels = [];
+
+    private DashboardStats _stats = new();
+
+    private IEnumerable<AppointmentResponse> FilteredAppointments =>
+        _appointments
+            .Where(a => !_showHighRiskOnly || a.IsHighRisk)
+            .Where(a => string.IsNullOrEmpty(_searchText) ||
+                        a.PatientFullName.Contains(_searchText, StringComparison.OrdinalIgnoreCase) ||
+                        a.DoctorFullName.Contains(_searchText, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await AuthService.GetCurrentSessionAsync();
+        if (session == null || !session.IsAdmin)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _loading = true;
+
+        // Hafif stats sorgusu — tüm randevuları çekmeden KPI + chart verisi al
+        var statsTask       = AppointmentService.GetAdminStatsAsync();
+        // Tablo için son 500 randevu
+        var appointmentsTask = AppointmentService.GetAllForAdminAsync();
+        var patientsTask    = PatientService.GetAllAsync();
+
+        await Task.WhenAll(statsTask, appointmentsTask, patientsTask);
+
+        var statsResult = statsTask.Result;
+        var allResult   = appointmentsTask.Result;
+
+        if (statsResult.IsSuccess && statsResult.Data != null)
+        {
+            var s = statsResult.Data;
+            _stats = new DashboardStats
+            {
+                TotalAppointments = s.TotalCount,
+                TodayAppointments = s.TodayCount,
+                HighRiskCount     = s.HighRiskCount,
+                NoShowRate        = s.NoShowRate,
+                TotalPatients     = patientsTask.Result.Data?.Count ?? 0,
+                HighRiskPatients  = patientsTask.Result.Data?.Count(p => p.NoShowRate >= 0.3) ?? 0
+            };
+
+            _polyclinicLabels = s.PolyclinicStats.Select(x => x.Name ?? "").ToArray();
+            _polyclinicSeries = [ new ChartSeries { Name = "No-Show %", Data = s.PolyclinicStats.Select(x => x.NoShowRate).ToArray() } ];
+
+            _statusData   = [ s.CompletedCount, s.NoShowCount, s.ScheduledCount, s.CancelledCount ];
+            _statusLabels = [ "Tamamlandı", "Gelmedi", "Planlandı", "İptal" ];
+        }
+        else if (allResult.IsSuccess)
+        {
+            // Fallback: stats endpoint yoksa lokal hesapla
+            _appointments = allResult.Data ?? [];
+            BuildChartData();
+            BuildStats(patientsTask.Result.Data ?? []);
+        }
+        else
+        {
+            _loadError = allResult.ErrorMessage ?? "API'ye bagılanılamıyor. Backend'in çalıştığını kontrol edin.";
+        }
+
+        if (allResult.IsSuccess)
+            _appointments = allResult.Data ?? [];
+
+        _loading = false;
+    }
+
+    private void BuildChartData()
+    {
+        // Poliklinik bazlı no-show oranı
+        var byPolyclinic = _appointments
+            .GroupBy(a => a.PolyclinicName)
+            .Select(g => new
+            {
+                Name = g.Key.Length > 12 ? g.Key[..12] + "…" : g.Key,
+                NoShowRate = g.Count(a => a.Status == AppointmentStatus.NoShow) / (double)g.Count() * 100
+            })
+            .OrderByDescending(x => x.NoShowRate)
+            .Take(5)
+            .ToList();
+
+        _polyclinicLabels = byPolyclinic.Select(x => x.Name).ToArray();
+        _polyclinicSeries =
+        [
+            new ChartSeries { Name = "No-Show %", Data = byPolyclinic.Select(x => x.NoShowRate).ToArray() }
+        ];
+
+        // Durum dağılımı
+        var grouped = _appointments.GroupBy(a => a.Status).ToDictionary(g => g.Key, g => g.Count());
+        _statusData =
+        [
+            grouped.GetValueOrDefault(AppointmentStatus.Completed, 0),
+            grouped.GetValueOrDefault(AppointmentStatus.NoShow, 0),
+            grouped.GetValueOrDefault(AppointmentStatus.Scheduled, 0),
+            grouped.GetValueOrDefault(AppointmentStatus.Cancelled, 0)
+        ];
+        _statusLabels = ["Tamamlandı", "Gelmedi", "Planlandı", "İptal"];
+    }
+
+    private void BuildStats(List<PatientResponse> patients)
+    {
+        var today = DateTime.Today;
+        _stats = new DashboardStats
+        {
+            TotalAppointments = _appointments.Count,
+            TodayAppointments = _appointments.Count(a => a.AppointmentDate.Date == today),
+            HighRiskCount = _appointments.Count(a => a.IsHighRisk),
+            NoShowRate = _appointments.Count == 0 ? 0
+                : _appointments.Count(a => a.Status == AppointmentStatus.NoShow) / (double)_appointments.Count * 100,
+            TotalPatients = patients.Count,
+            HighRiskPatients = patients.Count(p => p.NoShowRate >= 0.3)
+        };
+    }
+
+    private async Task ShowDetailAsync(AppointmentResponse apt)
+    {
+        var parameters = new DialogParameters
+        {
+            ["Appointment"] = apt
+        };
+        await DialogService.ShowAsync<AppointmentDetailDialog>("Randevu Detayı", parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Small, FullWidth = true });
+    }
+
+    private void OnRowClick(DataGridRowClickEventArgs<AppointmentResponse> args)
+        => ShowDetailAsync(args.Item);
+
+    private static Color GetStatusColor(AppointmentStatus status) => status switch
+    {
+        AppointmentStatus.Completed => Color.Success,
+        AppointmentStatus.NoShow => Color.Error,
+        AppointmentStatus.Cancelled => Color.Default,
+        AppointmentStatus.Scheduled => Color.Primary,
+        _ => Color.Default
+    };
+
+    private static Color GetRiskColor(double score) => score switch
+    {
+        > 0.80 => Color.Error,
+        > 0.60 => Color.Warning,
+        > 0.30 => Color.Info,
+        _ => Color.Success
+    };
+
+    private record DashboardStats
+    {
+        public int TotalAppointments { get; init; }
+        public int TodayAppointments { get; init; }
+        public int HighRiskCount { get; init; }
+        public double NoShowRate { get; init; }
+        public int TotalPatients { get; init; }
+        public int HighRiskPatients { get; init; }
+    }
+}

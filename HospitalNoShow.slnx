@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/HospitalNoShow.API/HospitalNoShow.API.csproj" />
+    <Project Path="src/HospitalNoShow.Application/HospitalNoShow.Application.csproj" />
+    <Project Path="src/HospitalNoShow.BlazorClient/HospitalNoShow.BlazorClient.csproj" />
+    <Project Path="src/HospitalNoShow.Domain/HospitalNoShow.Domain.csproj" />
+    <Project Path="src/HospitalNoShow.Infrastructure/HospitalNoShow.Infrastructure.csproj" />
+  </Folder>
+</Solution>
