@@ -1,0 +1,274 @@
+@page "/doctor/panel"
+@attribute [Authorize]
+@inject AppointmentApiService AppointmentService
+@inject DoctorApiService DoctorService
+@inject AuthApiService AuthService
+@inject NavigationManager Nav
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@using HospitalNoShow.BlazorClient.Shared.Components
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Doktor Paneli | Hastane Randevu</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-1">
+    <MudIcon Icon="@Icons.Material.Filled.MedicalServices" Class="mb-1 mr-2" />
+    Günlük Randevularım
+</MudText>
+<MudText Typo="Typo.body2" Color="Color.Secondary" Class="mb-5">
+    @_selectedDate.ToString("dd MMMM yyyy, dddd", new System.Globalization.CultureInfo("tr-TR"))
+</MudText>
+
+<!-- ─── Tarih Seçici & Özet ───────────────────────────────────────────── -->
+<MudGrid Class="mb-5" AlignItems="AlignItems.Center">
+    <MudItem xs="12" sm="6" md="4">
+        <MudDatePicker Label="Gün Seçin"
+                       Date="_selectedDateNullable"
+                       DateChanged="OnDateChangedAsync"
+                       Variant="Variant.Outlined"
+                       DateFormat="dd.MM.yyyy"
+                       MaxDate="DateTime.Today.AddMonths(3)"
+                       FirstDayOfWeek="DayOfWeek.Monday" />
+    </MudItem>
+    <MudItem xs="12" sm="6" md="8">
+        <div class="d-flex flex-wrap gap-3">
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled" Icon="@Icons.Material.Filled.CalendarToday">
+                Toplam: @_appointments.Count
+            </MudChip>
+            <MudChip T="string" Color="Color.Warning" Variant="Variant.Filled" Icon="@Icons.Material.Filled.Warning">
+                Yüksek Risk: @_appointments.Count(a => a.IsHighRisk)
+            </MudChip>
+            <MudChip T="string" Color="Color.Success" Variant="Variant.Filled" Icon="@Icons.Material.Filled.CheckCircle">
+                Tamamlanan: @_appointments.Count(a => a.Status == AppointmentStatus.Completed)
+            </MudChip>
+        </div>
+    </MudItem>
+</MudGrid>
+
+@if (_loading)
+{
+    <div class="d-flex justify-center mt-8">
+        <MudProgressCircular Indeterminate="true" Size="Size.Large" Color="Color.Primary" />
+    </div>
+}
+else if (_appointments.Count == 0)
+{
+    <MudPaper Class="pa-8 text-center" Elevation="1">
+        <MudIcon Icon="@Icons.Material.Filled.EventBusy" Style="font-size:4rem;" Color="Color.Secondary" />
+        <MudText Typo="Typo.h6" Color="Color.Secondary" Class="mt-3">
+            Bu tarih için randevu bulunamadı.
+        </MudText>
+    </MudPaper>
+}
+else
+{
+    <!-- ─── Timeline Görünümü ──────────────────────────────────────────── -->
+    <MudTimeline TimelinePosition="TimelinePosition.Start" Class="pl-0">
+        @foreach (var apt in _appointments.OrderBy(a => a.AppointmentTime))
+        {
+            <MudTimelineItem Color="@GetTimelineColor(apt)"
+                             Variant="Variant.Filled"
+                             Size="Size.Medium">
+                <ItemOpposite>
+                    <MudText Typo="Typo.h6" Color="Color.Primary">
+                        @apt.AppointmentTime.ToString("HH:mm")
+                    </MudText>
+                </ItemOpposite>
+                <ItemContent>
+                    <MudCard Elevation="2" Class="@($"appointment-card {(apt.IsHighRisk ? "high-risk-card" : "")}")"
+                             Style="cursor:pointer"
+                             @onclick="@(() => ShowPatientRiskDetailAsync(apt))">
+                        <MudCardContent Class="pa-3">
+                            <div class="d-flex justify-space-between align-start">
+                                <!-- Sol: Hasta Bilgisi -->
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-center gap-2 mb-1">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                                        <MudText Typo="Typo.subtitle1" Style="font-weight:600">
+                                            @apt.PatientFullName
+                                        </MudText>
+                                        @if (apt.IsHighRisk)
+                                        {
+                                            <MudTooltip Text="Yüksek No-Show Riski!">
+                                                <MudChip T="string" Color="Color.Error" Size="Size.Small"
+                                                         Variant="Variant.Filled" Icon="@Icons.Material.Filled.Warning">
+                                                    HIGH RISK
+                                                </MudChip>
+                                            </MudTooltip>
+                                        }
+                                    </div>
+                                    <div class="d-flex align-center gap-3">
+                                        <MudChip T="string" Size="Size.Small" Variant="Variant.Outlined"
+                                                 Color="@GetStatusColor(apt.Status)">
+                                            @apt.StatusDisplay
+                                        </MudChip>
+                                        @if (apt.Notes is not null)
+                                        {
+                                            var cleanNote = apt.Notes.Replace("[SEED-MERT]", "").Trim();
+                                            if (!string.IsNullOrEmpty(cleanNote))
+                                            {
+                                                <MudTooltip Text="@cleanNote">
+                                                    <MudIcon Icon="@Icons.Material.Filled.Note"
+                                                             Size="Size.Small" Color="Color.Info" />
+                                                </MudTooltip>
+                                            }
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Sağ: Risk Göstergesi -->
+                                @if (apt.NoShowRisk != null)
+                                {
+                                    <div class="text-center ml-3">
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">Risk</MudText>
+                                        <RiskGauge Score="@apt.NoShowRisk.RiskScore" Size="60" />
+                                    </div>
+                                }
+
+                                <!-- Durum Güncelleme Butonları -->
+                                <div class="d-flex flex-column gap-1 ml-2">
+                                    @if (apt.Status == AppointmentStatus.Scheduled)
+                                    {
+                                        <MudIconButton Icon="@Icons.Material.Filled.CheckCircle"
+                                                       Color="Color.Success" Size="Size.Small"
+                                                       Title="Tamamlandı olarak işaretle"
+                                                       OnClick="@(() => MarkCompletedAsync(apt))" />
+                                        <MudIconButton Icon="@Icons.Material.Filled.PersonOff"
+                                                       Color="Color.Error" Size="Size.Small"
+                                                       Title="Gelmedi olarak işaretle"
+                                                       OnClick="@(() => MarkNoShowAsync(apt))" />
+                                    }
+                                    <MudIconButton Icon="@Icons.Material.Outlined.Info"
+                                                   Color="Color.Primary" Size="Size.Small"
+                                                   Title="Risk Detayı"
+                                                   OnClick="@(() => ShowPatientRiskDetailAsync(apt))" />
+                                </div>
+                            </div>
+                        </MudCardContent>
+                    </MudCard>
+                </ItemContent>
+            </MudTimelineItem>
+        }
+    </MudTimeline>
+}
+
+<style>
+    .appointment-card {
+        border-left: 4px solid #e0e0e0;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .appointment-card:hover {
+        transform: translateX(4px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+    }
+
+    .high-risk-card {
+        border-left-color: #f44336 !important;
+        background: linear-gradient(to right, rgba(244,67,54,0.05), transparent) !important;
+    }
+</style>
+
+@code {
+    private bool _loading = true;
+    private List<AppointmentResponse> _appointments = [];
+    private DateTime _selectedDate = DateTime.Today;
+    private DateTime? _selectedDateNullable => _selectedDate;
+    private int _doctorId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var session = await AuthService.GetCurrentSessionAsync();
+        if (session == null || !session.IsDoctor)
+        {
+            Nav.NavigateTo("/login");
+            return;
+        }
+
+        var doctorResult = await DoctorService.GetByUserIdAsync(session.UserId);
+        if (doctorResult.IsSuccess && doctorResult.Data is not null)
+            _doctorId = doctorResult.Data.Id;
+
+        await LoadAppointmentsAsync();
+    }
+
+    private async Task OnDateChangedAsync(DateTime? date)
+    {
+        if (date.HasValue)
+        {
+            _selectedDate = date.Value;
+            await LoadAppointmentsAsync();
+        }
+    }
+
+    private async Task LoadAppointmentsAsync()
+    {
+        _loading = true;
+        var result = await AppointmentService.GetByDoctorAndDateAsync(
+            _doctorId, DateOnly.FromDateTime(_selectedDate));
+
+        _appointments = result.IsSuccess ? result.Data ?? [] : [];
+        _loading = false;
+    }
+
+    private async Task MarkCompletedAsync(AppointmentResponse apt)
+    {
+        var result = await AppointmentService.UpdateStatusAsync(apt.Id, AppointmentStatus.Completed);
+        if (result.IsSuccess)
+        {
+            Snackbar.Add($"{apt.PatientFullName} — Tamamlandı olarak işaretlendi.", Severity.Success);
+            await LoadAppointmentsAsync();
+        }
+        else
+        {
+            Snackbar.Add(result.ErrorMessage ?? "Hata oluştu.", Severity.Error);
+        }
+    }
+
+    private async Task MarkNoShowAsync(AppointmentResponse apt)
+    {
+        var confirm = await DialogService.ShowMessageBox(
+            "Gelmedi Olarak İşaretle",
+            $"{apt.PatientFullName} için 'Gelmedi' kaydı oluşturulsun mu?",
+            yesText: "Evet, Kaydet", cancelText: "İptal");
+
+        if (confirm == true)
+        {
+            var result = await AppointmentService.UpdateStatusAsync(apt.Id, AppointmentStatus.NoShow);
+            if (result.IsSuccess)
+            {
+                Snackbar.Add($"{apt.PatientFullName} — No-Show kaydedildi.", Severity.Warning);
+                await LoadAppointmentsAsync();
+            }
+        }
+    }
+
+    private async Task ShowPatientRiskDetailAsync(AppointmentResponse apt)
+    {
+        var parameters = new DialogParameters { ["Appointment"] = apt };
+        await DialogService.ShowAsync<PatientRiskDetailDialog>(
+            "Hasta Risk Analizi",
+            parameters,
+            new DialogOptions { MaxWidth = MaxWidth.Medium, FullWidth = true });
+    }
+
+    private static Color GetTimelineColor(AppointmentResponse apt)
+    {
+        if (apt.IsHighRisk) return Color.Error;
+        return apt.Status switch
+        {
+            AppointmentStatus.Completed => Color.Success,
+            AppointmentStatus.NoShow => Color.Error,
+            AppointmentStatus.Cancelled => Color.Default,
+            _ => Color.Primary
+        };
+    }
+
+    private static Color GetStatusColor(AppointmentStatus status) => status switch
+    {
+        AppointmentStatus.Completed => Color.Success,
+        AppointmentStatus.NoShow => Color.Error,
+        AppointmentStatus.Cancelled => Color.Default,
+        _ => Color.Primary
+    };
+}

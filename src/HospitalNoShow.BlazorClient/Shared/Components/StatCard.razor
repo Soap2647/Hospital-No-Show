@@ -1,0 +1,59 @@
+@using MudBlazor
+
+<MudCard Elevation="2" Class="stat-card" Style="height:100%">
+    <MudCardContent>
+        <div class="d-flex justify-space-between align-start">
+            <div>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Style="text-transform:uppercase;letter-spacing:0.05em">
+                    @Title
+                </MudText>
+                <MudText Typo="Typo.h4" Style="font-weight:700;line-height:1.2" Class="mt-1">
+                    @Value
+                </MudText>
+                <MudText Typo="Typo.caption" Color="Color.Secondary" Class="mt-1">
+                    @SubText
+                </MudText>
+            </div>
+            <div class="stat-icon-wrapper" style="@GetIconStyle()">
+                <MudIcon Icon="@Icon" Style="font-size:2rem;color:white" />
+            </div>
+        </div>
+    </MudCardContent>
+</MudCard>
+
+<style>
+    .stat-card {
+        border-radius: 12px !important;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12) !important;
+    }
+    .stat-icon-wrapper {
+        width: 56px;
+        height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+</style>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Icon { get; set; } = string.Empty;
+    [Parameter] public Color Color { get; set; } = Color.Primary;
+    [Parameter] public string SubText { get; set; } = string.Empty;
+
+    private string GetIconStyle() => Color switch
+    {
+        Color.Primary => "background: linear-gradient(135deg, #1976d2, #0d47a1);",
+        Color.Error => "background: linear-gradient(135deg, #f44336, #b71c1c);",
+        Color.Warning => "background: linear-gradient(135deg, #ff9800, #e65100);",
+        Color.Success => "background: linear-gradient(135deg, #4caf50, #1b5e20);",
+        Color.Info => "background: linear-gradient(135deg, #2196f3, #0d47a1);",
+        _ => "background: linear-gradient(135deg, #607d8b, #263238);"
+    };
+}

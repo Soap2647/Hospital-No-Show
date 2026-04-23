@@ -1,0 +1,314 @@
+@page "/register"
+@layout EmptyLayout
+@inject AuthApiService AuthService
+@inject NavigationManager Nav
+@inject ISnackbar Snackbar
+@using HospitalNoShow.BlazorClient.Models
+
+<PageTitle>Kayıt Ol | Hastane Randevu Sistemi</PageTitle>
+
+<MudThemeProvider Theme="_theme" />
+<MudSnackbarProvider />
+
+<div class="register-wrapper">
+    <div class="register-bg-pattern"></div>
+
+    <div class="register-card-container">
+        <!-- Logo & Başlık -->
+        <div class="register-header text-center mb-6">
+            <img src="images/logo.png" style="width:72px;height:72px;object-fit:contain;margin:auto;" alt="Logo" />
+            <MudText Typo="Typo.h5" Class="mt-2 text-white" Style="font-weight:700;">Hasta Kayıt Sistemi</MudText>
+            <MudText Typo="Typo.body2" Style="color:rgba(255,255,255,0.7);">Randevu alabilmek için ücretsiz kayıt olun</MudText>
+        </div>
+
+        <MudCard Class="register-card" Elevation="4">
+            <MudCardContent Class="pa-6">
+                
+                <MudStepper @bind-ActiveIndex="_activeIndex" Color="Color.Primary" Variant="Variant.Filled" HeaderTextView="HeaderTextView.All">
+                    <!-- ADIM 1: Hesap Bilgileri -->
+                    <MudStep Title="Hesap" Icon="@Icons.Material.Filled.AccountCircle">
+                        <MudForm @ref="_formStep1" IsValid="@_successStep1">
+                            <MudTextField @bind-Value="_model.FirstName" Label="Adınız" Required="true" RequiredError="Ad zorunludur" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudTextField @bind-Value="_model.LastName" Label="Soyadınız" Required="true" RequiredError="Soyad zorunludur" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudTextField @bind-Value="_model.Email" Label="E-posta Adresi" Required="true" RequiredError="E-posta zorunludur" InputType="InputType.Email" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudTextField @bind-Value="_model.Password" Label="Şifre" Required="true" RequiredError="Şifre zorunludur" InputType="InputType.Password" Variant="Variant.Outlined" Class="mb-2" />
+                            <MudText Typo="Typo.caption" Color="Color.Secondary">Şifre en az 8 karakter olmalıdır.</MudText>
+                        </MudForm>
+                    </MudStep>
+
+                    <!-- ADIM 2: Kişisel Bilgiler -->
+                    <MudStep Title="Kişisel" Icon="@Icons.Material.Filled.Badge">
+                        <MudForm @ref="_formStep2" IsValid="@_successStep2">
+                            <MudTextField @bind-Value="_model.IdentityNumber" Label="TC Kimlik No (11 Hane)" Required="true" RequiredError="TC Kimlik zorunludur" Validation="@(new Func<string, string?>(ValidateTcKimlik))" MaxLength="11" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudDatePicker @bind-Date="_model.DateOfBirth" Label="Doğum Tarihi" Required="true" RequiredError="Doğum tarihi zorunludur" Variant="Variant.Outlined" Class="mb-4" MaxDate="DateTime.Today" />
+                            <MudSelect @bind-Value="_model.Gender" Label="Cinsiyet" Required="true" Variant="Variant.Outlined" Class="mb-4">
+                                <MudSelectItem Value="Gender.Male">Erkek</MudSelectItem>
+                                <MudSelectItem Value="Gender.Female">Kadın</MudSelectItem>
+                            </MudSelect>
+                            <MudTextField @bind-Value="_model.PhoneNumber" Label="Telefon Numarası (5xx xxx xx xx)" Required="true" RequiredError="Telefon zorunludur" Validation="@(new Func<string, string?>(ValidatePhone))" MaxLength="10" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudTextField @bind-Value="_model.City" Label="Yaşadığınız Şehir" Required="true" RequiredError="Şehir zorunludur" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudTextField @bind-Value="_model.Address" Label="Açık Adres" Required="true" RequiredError="Adres zorunludur" Lines="2" Variant="Variant.Outlined" Class="mb-4" />
+                            <MudNumericField @bind-Value="_model.DistanceToHospitalKm" Label="Hastaneye Uzaklık (km)" Required="true" Min="0.0" Max="500.0" Variant="Variant.Outlined" />
+                        </MudForm>
+                    </MudStep>
+
+                    <!-- ADIM 3: Sağlık Bilgileri -->
+                    <MudStep Title="Sağlık" Icon="@Icons.Material.Filled.MonitorHeart">
+                        <MudForm @ref="_formStep3" IsValid="@_successStep3">
+                            <MudGrid>
+                                <MudItem xs="6">
+                                    <MudNumericField @bind-Value="_model.HeightCm" Label="Boy (cm)" Min="50" Max="250" Variant="Variant.Outlined" Class="mb-4" />
+                                </MudItem>
+                                <MudItem xs="6">
+                                    <MudNumericField @bind-Value="_model.WeightKg" Label="Kilo (kg)" Min="10.0" Max="300.0" Variant="Variant.Outlined" Class="mb-4" />
+                                </MudItem>
+                            </MudGrid>
+                            
+                            <MudSelect @bind-Value="_model.BloodType" Label="Kan Grubu" Variant="Variant.Outlined" Class="mb-4">
+                                <MudSelectItem T="string" Value="@((string?)null)">Girmek İstemiyorum</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("0 RH+")">0 RH+</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("0 RH-")">0 RH-</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("A RH+")">A RH+</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("A RH-")">A RH-</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("B RH+")">B RH+</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("B RH-")">B RH-</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("AB RH+")">AB RH+</MudSelectItem>
+                                <MudSelectItem T="string" Value="@("AB RH-")">AB RH-</MudSelectItem>
+                            </MudSelect>
+
+                            <MudSelect @bind-Value="_model.InsuranceType" Label="Sağlık Sigortası Durumu" Required="true" Variant="Variant.Outlined" Class="mb-4">
+                                <MudSelectItem Value="InsuranceType.None">Yok (Ücretli Hasta)</MudSelectItem>
+                                <MudSelectItem Value="InsuranceType.SGK">SGK (Sosyal Güvenlik Kurumu)</MudSelectItem>
+                                <MudSelectItem Value="InsuranceType.PrivateInsurance">Özel Sağlık Sigortası</MudSelectItem>
+                                <MudSelectItem Value="InsuranceType.GreenCard">Yeşil Kart</MudSelectItem>
+                            </MudSelect>
+
+                            <MudSwitch @bind-Value="_model.HasChronicDisease" Color="Color.Warning" Class="mb-2">Kronik hastalığım var</MudSwitch>
+                            @if (_model.HasChronicDisease)
+                            {
+                                <MudTextField @bind-Value="_model.ChronicDiseaseNotes" Label="Hastalık Detayları" Lines="2" Variant="Variant.Outlined" Class="mb-4" />
+                            }
+                        </MudForm>
+                    </MudStep>
+                </MudStepper>
+
+                @if (!string.IsNullOrEmpty(_errorMessage))
+                {
+                    <MudAlert Severity="Severity.Error" Class="mt-4" Dense="true">@_errorMessage</MudAlert>
+                }
+
+                <!-- Aksiyon Butonları -->
+                <div class="d-flex justify-space-between align-center mt-6">
+                    <MudButton Variant="Variant.Text" Color="Color.Default" OnClick="@(() => Nav.NavigateTo("/login"))">Zaten hesabım var</MudButton>
+                    
+                    <div>
+                        @if (_activeIndex > 0)
+                        {
+                            <MudButton Variant="Variant.Text" Class="mr-2" OnClick="@(() => _activeIndex--)">Geri</MudButton>
+                        }
+                        
+                        @if (_activeIndex < 2)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="NextStep">İleri</MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="_isLoading" OnClick="SubmitRegistration">
+                                @if (_isLoading)
+                                {
+                                    <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-2" />
+                                    <span>Bekleyin...</span>
+                                }
+                                else
+                                {
+                                    <span>Kaydı Tamamla</span>
+                                }
+                            </MudButton>
+                        }
+                    </div>
+                </div>
+
+            </MudCardContent>
+        </MudCard>
+    </div>
+</div>
+
+<style>
+    .register-wrapper {
+        min-height: 100vh;
+        background: #060E18;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+        position: relative;
+    }
+    .register-bg-pattern {
+        position: absolute;
+        inset: 0;
+        background-image: radial-gradient(circle at 50% 10%, rgba(198,40,40,0.1) 0%, transparent 50%);
+        pointer-events: none;
+    }
+    .register-card-container {
+        width: 100%;
+        max-width: 600px;
+        z-index: 1;
+    }
+    .register-card {
+        border-radius: 12px;
+    }
+    /* Stepper overwrites for cleaner look */
+    .mud-stepper-nav { margin-bottom: 1rem; }
+    .mud-step-content { min-height: 380px; }
+</style>
+
+@code {
+    private int _activeIndex = 0;
+    private bool _isLoading = false;
+    private string? _errorMessage;
+
+    private MudForm? _formStep1;
+    private MudForm? _formStep2;
+    private MudForm? _formStep3;
+
+    private bool _successStep1;
+    private bool _successStep2;
+    private bool _successStep3;
+
+    private readonly RegistrationModel _model = new();
+
+    // Theme (Light explicitly for the card surface readability)
+    private readonly MudTheme _theme = new()
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#0D1B2A",
+            Secondary = "#C62828",
+            Success = "#2e7d32",
+            Background = "#F4F5F8"
+        }
+    };
+
+    private async Task NextStep()
+    {
+        _errorMessage = null;
+
+        if (_activeIndex == 0)
+        {
+            await _formStep1!.Validate();
+            if (_successStep1) _activeIndex++;
+        }
+        else if (_activeIndex == 1)
+        {
+            await _formStep2!.Validate();
+            if (_successStep2) _activeIndex++;
+        }
+    }
+
+    private async Task SubmitRegistration()
+    {
+        _errorMessage = null;
+        await _formStep3!.Validate();
+
+        if (!_successStep1 || !_successStep2 || !_successStep3)
+        {
+            _errorMessage = "Lütfen tüm zorunlu alanları doldurun.";
+            // Go back to the first invalid step
+            if (!_successStep1) _activeIndex = 0;
+            else if (!_successStep2) _activeIndex = 1;
+            return;
+        }
+
+        _isLoading = true;
+
+        var requestData = new
+        {
+            _model.Email,
+            _model.Password,
+            _model.FirstName,
+            _model.LastName,
+            _model.IdentityNumber,
+            DateOfBirth = _model.DateOfBirth!.Value.ToString("yyyy-MM-dd"),
+            _model.Gender,
+            _model.PhoneNumber,
+            _model.Address,
+            _model.City,
+            _model.DistanceToHospitalKm,
+            _model.InsuranceType,
+            _model.InsurancePolicyNumber,
+            _model.HasChronicDisease,
+            _model.ChronicDiseaseNotes,
+            _model.HeightCm,
+            _model.WeightKg,
+            _model.BloodType
+        };
+
+        var result = await AuthService.RegisterPatientAsync(requestData);
+
+        if (result.IsSuccess)
+        {
+            Snackbar.Add("Kayıt başarılı! Yönlendiriliyorsunuz...", Severity.Success);
+            await Task.Delay(1000);
+            Nav.NavigateTo("/patient/panel");
+        }
+        else
+        {
+            _errorMessage = result.ErrorMessage ?? "Kayıt işlemi sırasında bir hata oluştu.";
+        }
+
+        _isLoading = false;
+    }
+
+    public class RegistrationModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string FirstName { get; set; } = string.Empty;
+        public string LastName { get; set; } = string.Empty;
+        
+        public string IdentityNumber { get; set; } = string.Empty;
+        public DateTime? DateOfBirth { get; set; }
+        public Gender Gender { get; set; } = Gender.Male;
+        public string PhoneNumber { get; set; } = string.Empty;
+        public string Address { get; set; } = string.Empty;
+        public string City { get; set; } = string.Empty;
+        public double DistanceToHospitalKm { get; set; }
+        
+        public InsuranceType InsuranceType { get; set; } = InsuranceType.None;
+        public string? InsurancePolicyNumber { get; set; }
+        public bool HasChronicDisease { get; set; }
+        public string? ChronicDiseaseNotes { get; set; }
+        
+        // Yeni eklenen alanlar
+        public int? HeightCm { get; set; }
+        public double? WeightKg { get; set; }
+        public string? BloodType { get; set; }
+    }
+
+    private string? ValidateTcKimlik(string tc)
+    {
+        if (string.IsNullOrWhiteSpace(tc)) return "TC Kimlik Numaranızı girin.";
+        if (tc.Length != 11 || !System.Text.RegularExpressions.Regex.IsMatch(tc, @"^\d{11}$")) return "11 haneli rakam olmalıdır.";
+        if (tc[0] == '0') return "TC Kimlik No 0 ile başlayamaz.";
+        
+        int[] digits = tc.Select(c => int.Parse(c.ToString())).ToArray();
+        int sumOdd = digits[0] + digits[2] + digits[4] + digits[6] + digits[8];
+        int sumEven = digits[1] + digits[3] + digits[5] + digits[7];
+        int digit10 = ((sumOdd * 7) - sumEven) % 10;
+        if (digit10 < 0) digit10 += 10;
+        if (digits[9] != digit10) return "Geçersiz TC Kimlik Numarası (Hatalı numara).";
+        
+        int totalSum = digits.Take(10).Sum();
+        int digit11 = totalSum % 10;
+        if (digits[10] != digit11) return "Geçersiz TC Kimlik Numarası (Hatalı numara).";
+        
+        return null;
+    }
+
+    private string? ValidatePhone(string phone)
+    {
+        if (string.IsNullOrWhiteSpace(phone)) return "Telefon numarası girin.";
+        if (!System.Text.RegularExpressions.Regex.IsMatch(phone, @"^5\d{9}$")) return "Telefon 5 ile başlamalı ve başından 0 atılarak toplam 10 haneli girilmelidir (Örn: 5551234567).";
+        return null;
+    }
+}

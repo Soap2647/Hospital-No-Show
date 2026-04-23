@@ -1,0 +1,43 @@
+<CascadingAuthenticationState>
+    <Router AppAssembly="@typeof(App).Assembly">
+        <Found Context="routeData">
+            <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
+                <NotAuthorized>
+                    @if (!context.User.Identity?.IsAuthenticated ?? true)
+                    {
+                        <RedirectToLogin />
+                    }
+                    else
+                    {
+                        <MudAlert Severity="Severity.Error" Class="ma-4">
+                            Bu sayfaya erişim yetkiniz bulunmuyor.
+                        </MudAlert>
+                    }
+                </NotAuthorized>
+                <Authorizing>
+                    <div class="d-flex justify-center align-center" style="height:100vh">
+                        <MudProgressCircular Indeterminate="true" Size="Size.Large" Color="Color.Primary" />
+                    </div>
+                </Authorizing>
+            </AuthorizeRouteView>
+            <FocusOnNavigate RouteData="@routeData" Selector="h1" />
+        </Found>
+        <NotFound>
+            <PageTitle>Sayfa Bulunamadı</PageTitle>
+            <LayoutView Layout="@typeof(MainLayout)">
+                <MudContainer MaxWidth="MaxWidth.Small" Class="mt-10 text-center">
+                    <MudIcon Icon="@Icons.Material.Filled.SearchOff"
+                             Style="font-size:5rem" Color="Color.Secondary" />
+                    <MudText Typo="Typo.h4" Class="mt-3">404 - Sayfa Bulunamadı</MudText>
+                    <MudText Color="Color.Secondary" Class="mt-2 mb-4">
+                        Aradığınız sayfa mevcut değil.
+                    </MudText>
+                    <MudButton Href="/" Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.Home">
+                        Ana Sayfaya Dön
+                    </MudButton>
+                </MudContainer>
+            </LayoutView>
+        </NotFound>
+    </Router>
+</CascadingAuthenticationState>

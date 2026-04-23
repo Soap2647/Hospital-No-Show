@@ -1,0 +1,579 @@
+@inject DoctorApiService DoctorService
+@inject AppointmentApiService AppointmentService
+
+<MudDialog Class="booking-dialog-root">
+    <TitleContent>
+        <div style="display:flex;align-items:center;gap:10px;">
+            <MudIcon Icon="@Icons.Material.Filled.CalendarMonth" Style="color:#C62828;font-size:1.6rem;" />
+            <MudText Typo="Typo.h6" Style="font-weight:700;">Randevu Al</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <div class="booking-stepper">
+            <!-- ADIM 1: Doktor seç -->
+            <div class="step-section @(_step >= 1 ? "active" : "")">
+                <div class="step-header">
+                    <div class="step-badge @(_step >= 1 ? "done" : "")">1</div>
+                    <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Doktor Seçin</MudText>
+                </div>
+                @if (_step == 1)
+                {
+                    <div class="doctor-grid mt-3">
+                        @foreach (var doc in Doctors)
+                        {
+                            var isSelected = _selectedDoctorId == doc.Id;
+                            <div class="doctor-card @(isSelected ? "selected" : "")" @onclick="() => SelectDoctor(doc)">
+                                <div class="doc-avatar">@doc.FullName[0]</div>
+                                <div class="doc-info">
+                                    <div class="doc-name">@doc.Title @doc.FullName</div>
+                                    <div class="doc-spec">@doc.Specialty</div>
+                                    <div class="doc-poly">🏥 @doc.PolyclinicName</div>
+                                </div>
+                                @if (isSelected)
+                                {
+                                    <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Style="color:#C62828;margin-left:auto;" />
+                                }
+                            </div>
+                        }
+                    </div>
+                    <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true"
+                               Class="mt-3" Disabled="@(_selectedDoctorId == 0)"
+                               OnClick="GoToStep2">Tarih Seç →</MudButton>
+                }
+                else if (_step > 1 && _selectedDoctor != null)
+                {
+                    <div class="step-summary" @onclick="() => _step = 1">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                        <span>@_selectedDoctor.Title @_selectedDoctor.FullName — @_selectedDoctor.PolyclinicName</span>
+                        <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Style="margin-left:auto;opacity:.6;" />
+                    </div>
+                }
+            </div>
+
+            <!-- ADIM 2: Tarih seç -->
+            @if (_step >= 2)
+            {
+                <div class="step-section @(_step >= 2 ? "active" : "")">
+                    <div class="step-header">
+                        <div class="step-badge @(_step >= 2 ? "done" : "")">2</div>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Tarih Seçin</MudText>
+                    </div>
+                    @if (_step == 2)
+                    {
+                        <div class="date-row mt-3">
+                            @for (int i = 0; i < 14; i++)
+                            {
+                                var day = DateOnly.FromDateTime(DateTime.Today.AddDays(i));
+                                var isSelected = _selectedDate == day;
+                                var dayName = day.ToDateTime(TimeOnly.MinValue).ToString("ddd", new System.Globalization.CultureInfo("tr-TR"));
+                                var isWeekend = day.DayOfWeek == DayOfWeek.Saturday || day.DayOfWeek == DayOfWeek.Sunday;
+                                <div class="date-card @(isSelected ? "selected" : "") @(isWeekend ? "weekend" : "")"
+                                     @onclick="() => isWeekend ? default : SelectDate(day)">
+                                    <div class="day-label">@dayName</div>
+                                    <div class="day-num">@day.Day</div>
+                                    <div class="month-label">@day.ToDateTime(TimeOnly.MinValue).ToString("MMM", new System.Globalization.CultureInfo("tr-TR"))</div>
+                                </div>
+                            }
+                        </div>
+                        @if (_selectedDate != default)
+                        {
+                            <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true"
+                                       Class="mt-3" OnClick="GoToStep3">Saatleri Gör →</MudButton>
+                        }
+                    }
+                    else if (_step > 2)
+                    {
+                        <div class="step-summary" @onclick="() => { _step = 2; _selectedSlot = null; }">
+                            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
+                            <span>@_selectedDate.ToDateTime(TimeOnly.MinValue).ToString("dd MMMM yyyy dddd", new System.Globalization.CultureInfo("tr-TR"))</span>
+                            <MudIcon Icon="@Icons.Material.Filled.Edit" Size="Size.Small" Style="margin-left:auto;opacity:.6;" />
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- ADIM 3: Saat seç -->
+            @if (_step >= 3)
+            {
+                <div class="step-section @(_step >= 3 ? "active" : "")">
+                    <div class="step-header">
+                        <div class="step-badge @(_step >= 3 ? "done" : "")">3</div>
+                        <MudText Typo="Typo.subtitle1" Style="font-weight:600;">Saat Seçin</MudText>
+                    </div>
+                    @if (_step == 3)
+                    {
+                        @if (_loadingSlots)
+                        {
+                            <div class="d-flex justify-center pa-4">
+                                <MudProgressCircular Indeterminate="true" Color="Color.Error" Size="Size.Small" />
+                                <MudText Class="ml-2" Typo="Typo.caption">Müsait saatler yükleniyor...</MudText>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="slots-header mt-3">
+                                <MudChip T="string" Size="Size.Small" Color="Color.Success" Variant="Variant.Filled">● Müsait</MudChip>
+                                <MudChip T="string" Size="Size.Small" Color="Color.Default" Variant="Variant.Filled">● Dolu</MudChip>
+                                <MudText Typo="Typo.caption" Class="ml-auto" Color="Color.Secondary">
+                                    @_availableSlots.Count(s => !s.IsTaken) boş slot
+                                </MudText>
+                            </div>
+
+                            @if (!_availableSlots.Any())
+                            {
+                                <MudAlert Severity="Severity.Warning" Dense="true" Class="mt-2">
+                                    Bu tarihte müsait saat bulunamadı. Başka bir gün deneyin.
+                                </MudAlert>
+                            }
+                            else
+                            {
+                                <!-- Sabah -->
+                                @if (_availableSlots.Any(s => s.Time.Hour < 12))
+                                {
+                                    <div class="slot-period-label">🌅 Sabah</div>
+                                    <div class="slot-grid">
+                                        @foreach (var slot in _availableSlots.Where(s => s.Time.Hour < 12))
+                                        {
+                                            <div class="slot @(slot.IsTaken ? "taken" : "free") @(_selectedSlot == slot.Time ? "selected" : "")"
+                                                 @onclick="() => SelectSlot(slot)">
+                                                @slot.Time.ToString("HH:mm")
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                <!-- Öğleden sonra -->
+                                @if (_availableSlots.Any(s => s.Time.Hour >= 12))
+                                {
+                                    <div class="slot-period-label">☀️ Öğleden Sonra</div>
+                                    <div class="slot-grid">
+                                        @foreach (var slot in _availableSlots.Where(s => s.Time.Hour >= 12))
+                                        {
+                                            <div class="slot @(slot.IsTaken ? "taken" : "free") @(_selectedSlot == slot.Time ? "selected" : "")"
+                                                 @onclick="() => SelectSlot(slot)">
+                                                @slot.Time.ToString("HH:mm")
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            }
+
+                            @if (_selectedSlot != null)
+                            {
+                                <MudTextField T="string" Label="Notlar (İsteğe Bağlı)" @bind-Value="_notes"
+                                              Variant="Variant.Outlined" Lines="2" Class="mt-3" />
+
+                                @if (!string.IsNullOrEmpty(_error))
+                                {
+                                    <MudAlert Severity="Severity.Error" Dense="true" Class="mt-2">@_error</MudAlert>
+                                }
+
+                                <div class="confirm-box mt-3">
+                                    <div class="confirm-info">
+                                        <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" Color="Color.Error" />
+                                        <span>@_selectedDoctor?.Title @_selectedDoctor?.FullName</span>
+                                    </div>
+                                    <div class="confirm-info">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" Color="Color.Error" />
+                                        <span>@_selectedDate.ToDateTime(TimeOnly.MinValue).ToString("dd MMMM yyyy", new System.Globalization.CultureInfo("tr-TR"))</span>
+                                    </div>
+                                    <div class="confirm-info">
+                                        <MudIcon Icon="@Icons.Material.Filled.Schedule" Size="Size.Small" Color="Color.Error" />
+                                        <span>Saat @_selectedSlot?.ToString("HH:mm")</span>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex gap-2 mt-3">
+                                    <MudButton Variant="Variant.Outlined" OnClick="Cancel" FullWidth="true">Vazgeç</MudButton>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Error" FullWidth="true"
+                                               Disabled="_saving" OnClick="SubmitAsync"
+                                               StartIcon="@Icons.Material.Filled.CheckCircle">
+                                        @if (_saving)
+                                        {
+                                            <MudProgressCircular Size="Size.Small" Indeterminate="true" Class="mr-1" />
+                                        }
+                                        Randevuyu Onayla
+                                    </MudButton>
+                                </div>
+                            }
+                        }
+                    }
+                </div>
+            }
+        </div>
+    </DialogContent>
+</MudDialog>
+
+<style>
+    .booking-dialog-root .mud-dialog-content {
+        padding: 8px 16px 16px !important;
+        max-height: 70vh;
+        overflow-y: auto;
+    }
+
+    .booking-stepper {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .step-section {
+        border: 1.5px solid rgba(0,0,0,0.08);
+        border-radius: 12px;
+        padding: 14px;
+        transition: all 0.2s;
+    }
+
+    .step-section.active {
+        border-color: #e8b4b4;
+        background: rgba(198,40,40,0.03);
+    }
+
+    .step-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .step-badge {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: #e0e0e0;
+        color: #777;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        flex-shrink: 0;
+    }
+
+    .step-badge.done {
+        background: #C62828;
+        color: #fff;
+    }
+
+    .step-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        background: rgba(198,40,40,0.07);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.9rem;
+        color: #C62828;
+        font-weight: 500;
+    }
+
+    .doctor-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 260px;
+        overflow-y: auto;
+    }
+
+    .doctor-card {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 14px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.15s;
+    }
+
+    .doctor-card:hover {
+        border-color: #C62828;
+        background: rgba(198,40,40,0.04);
+    }
+
+    .doctor-card.selected {
+        border-color: #C62828;
+        background: rgba(198,40,40,0.08);
+    }
+
+    .doc-avatar {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #C62828, #8B0000);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        font-weight: 700;
+        flex-shrink: 0;
+    }
+
+    .doc-info {
+        flex: 1;
+    }
+
+    .doc-name {
+        font-weight: 700;
+        font-size: 0.95rem;
+    }
+
+    .doc-spec {
+        font-size: 0.82rem;
+        color: #C62828;
+    }
+
+    .doc-poly {
+        font-size: 0.78rem;
+        color: #888;
+    }
+
+    .date-row {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+    }
+
+    .date-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding: 10px 8px;
+        min-width: 54px;
+        border: 1.5px solid #e0e0e0;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex-shrink: 0;
+    }
+
+    .date-card:hover:not(.weekend) {
+        border-color: #C62828;
+        background: rgba(198,40,40,0.05);
+    }
+
+    .date-card.selected {
+        border-color: #C62828;
+        background: #C62828;
+        color: white;
+    }
+
+    .date-card.selected .day-label,
+    .date-card.selected .month-label {
+        color: rgba(255,255,255,0.85);
+    }
+
+    .date-card.weekend {
+        opacity: 0.4;
+        cursor: not-allowed;
+    }
+
+    .day-label {
+        font-size: 0.7rem;
+        color: #888;
+        text-transform: uppercase;
+        font-weight: 600;
+    }
+
+    .day-num {
+        font-size: 1.3rem;
+        font-weight: 800;
+        line-height: 1.2;
+    }
+
+    .month-label {
+        font-size: 0.7rem;
+        color: #888;
+    }
+
+    .slots-header {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .slot-period-label {
+        font-size: 0.78rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #888;
+        margin-top: 12px;
+        margin-bottom: 6px;
+        letter-spacing: 0.04em;
+    }
+
+    .slot-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .slot {
+        padding: 6px 14px;
+        border-radius: 8px;
+        font-size: 0.88rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.15s;
+        border: 1.5px solid transparent;
+    }
+
+    .slot.free {
+        background: rgba(46,196,102,0.12);
+        color: #1a7a3a;
+        border-color: rgba(46,196,102,0.3);
+    }
+
+    .slot.free:hover {
+        background: #2ec464;
+        color: #fff;
+        border-color: #2ec464;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(46,196,102,0.3);
+    }
+
+    .slot.taken {
+        background: rgba(200,200,200,0.2);
+        color: #bbb;
+        border-color: rgba(200,200,200,0.3);
+        cursor: not-allowed;
+        text-decoration: line-through;
+    }
+
+    .slot.selected {
+        background: #C62828 !important;
+        color: #fff !important;
+        border-color: #C62828 !important;
+        box-shadow: 0 3px 10px rgba(198,40,40,0.35);
+    }
+
+    .confirm-box {
+        border: 1.5px solid #e8b4b4;
+        border-radius: 10px;
+        padding: 12px 16px;
+        background: rgba(198,40,40,0.04);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .confirm-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        color: #333;
+    }
+</style>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public IReadOnlyList<DoctorResponse> Doctors { get; set; } = [];
+    [Parameter] public Func<CreateAppointmentModel, Task<string?>> OnSubmit { get; set; } = null!;
+
+    private int _step = 1;
+    private int _selectedDoctorId = 0;
+    private DoctorResponse? _selectedDoctor;
+    private DateOnly _selectedDate = default;
+    private TimeOnly? _selectedSlot;
+    private string? _notes;
+    private bool _saving;
+    private bool _loadingSlots;
+    private string? _error;
+
+    private record Slot(TimeOnly Time, bool IsTaken);
+    private List<Slot> _availableSlots = [];
+
+    private void SelectDoctor(DoctorResponse doc)
+    {
+        _selectedDoctorId = doc.Id;
+        _selectedDoctor = doc;
+    }
+
+    private void GoToStep2()
+    {
+        if (_selectedDoctorId > 0)
+        {
+            _step = 2;
+            _selectedDate = default;
+            _selectedSlot = null;
+        }
+    }
+
+    private async Task SelectDate(DateOnly date)
+    {
+        _selectedDate = date;
+        StateHasChanged();
+    }
+
+    private async Task GoToStep3()
+    {
+        _step = 3;
+        _selectedSlot = null;
+        await LoadSlots();
+    }
+
+    private async Task LoadSlots()
+    {
+        _loadingSlots = true;
+        _availableSlots = [];
+        StateHasChanged();
+
+        // Doktorun o günkü randevularını çek
+        var aptsResult = await AppointmentService.GetByDoctorAndDateAsync(_selectedDoctorId, _selectedDate);
+        var takenTimes = aptsResult.IsSuccess
+            ? aptsResult.Data!
+                .Where(a => a.Status != AppointmentStatus.Cancelled)
+                .Select(a => a.AppointmentTime)
+                .ToHashSet()
+            : new HashSet<TimeOnly>();
+
+        // 09:00 - 17:00 arası 15 dakikada bir slot oluştur
+        var slots = new List<Slot>();
+        for (var t = new TimeOnly(9, 0); t < new TimeOnly(17, 0); t = t.AddMinutes(15))
+        {
+            slots.Add(new Slot(t, takenTimes.Contains(t)));
+        }
+
+        _availableSlots = slots;
+        _loadingSlots = false;
+        StateHasChanged();
+    }
+
+    private void SelectSlot(Slot slot)
+    {
+        if (!slot.IsTaken)
+        {
+            _selectedSlot = slot.Time;
+            _error = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (_selectedSlot == null) return;
+        _saving = true;
+        _error = null;
+
+        var model = new CreateAppointmentModel
+        {
+            DoctorId = _selectedDoctorId,
+            AppointmentDate = _selectedDate.ToDateTime(TimeOnly.MinValue),
+            AppointmentTime = _selectedSlot.Value.ToTimeSpan(),
+            Notes = _notes
+        };
+
+        _error = await OnSubmit(model);
+        _saving = false;
+
+        if (_error is null)
+            MudDialog.Close(DialogResult.Ok(true));
+    }
+
+    private void Cancel() => MudDialog.Cancel();
+}

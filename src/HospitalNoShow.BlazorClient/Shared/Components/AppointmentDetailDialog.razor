@@ -1,0 +1,80 @@
+<MudDialog>
+    <TitleContent>
+        <div class="d-flex align-center gap-2">
+            <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Color="Color.Primary" />
+            <MudText Typo="Typo.h6">Randevu Detayı</MudText>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        @if (Appointment == null)
+        {
+            <MudProgressCircular Indeterminate="true" />
+        }
+        else
+        {
+            <MudList T="string" Dense="true">
+                <MudListItem Icon="@Icons.Material.Filled.Person">
+                    <b>Hasta:</b> @Appointment.PatientFullName
+                </MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.MedicalServices">
+                    <b>Doktor:</b> @Appointment.DoctorTitle @Appointment.DoctorFullName
+                </MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.Business">
+                    <b>Poliklinik:</b> @Appointment.PolyclinicName
+                </MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.Schedule">
+                    <b>Tarih/Saat:</b> @Appointment.AppointmentDate.ToString("dd.MM.yyyy") — @Appointment.AppointmentTime.ToString("HH:mm")
+                </MudListItem>
+                <MudListItem Icon="@Icons.Material.Filled.Circle">
+                    <b>Durum:</b>
+                    <MudChip T="string" Size="Size.Small" Color="@GetStatusColor(Appointment.Status)" Variant="Variant.Filled" Class="ml-2">
+                        @Appointment.StatusDisplay
+                    </MudChip>
+                </MudListItem>
+                @if (Appointment.NoShowRisk != null)
+                {
+                    <MudListItem Icon="@Icons.Material.Filled.Psychology">
+                        <b>Risk Skoru:</b>
+                        <MudChip T="string" Size="Size.Small"
+                                 Color="@GetRiskColor(Appointment.NoShowRisk.RiskScore)"
+                                 Variant="Variant.Filled" Class="ml-2">
+                            @($"{Appointment.NoShowRisk.RiskScore:F2}") — @Appointment.NoShowRisk.RiskLevel
+                        </MudChip>
+                    </MudListItem>
+                }
+                @if (!string.IsNullOrEmpty(Appointment.Notes))
+                {
+                    <MudListItem Icon="@Icons.Material.Filled.Note">
+                        <b>Notlar:</b> @Appointment.Notes
+                    </MudListItem>
+                }
+            </MudList>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Close" Variant="Variant.Outlined">Kapat</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance MudDialog { get; set; } = null!;
+    [Parameter] public AppointmentResponse? Appointment { get; set; }
+
+    private void Close() => MudDialog.Close();
+
+    private static Color GetStatusColor(AppointmentStatus status) => status switch
+    {
+        AppointmentStatus.Completed => Color.Success,
+        AppointmentStatus.NoShow => Color.Error,
+        AppointmentStatus.Cancelled => Color.Default,
+        _ => Color.Primary
+    };
+
+    private static Color GetRiskColor(double score) => score switch
+    {
+        > 0.80 => Color.Error,
+        > 0.60 => Color.Warning,
+        > 0.30 => Color.Info,
+        _ => Color.Success
+    };
+}

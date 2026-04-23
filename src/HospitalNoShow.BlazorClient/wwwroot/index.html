@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hastane No-Show Randevu Sistemi</title>
+    <base href="/" />
+
+    <!-- MudBlazor CSS -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+    <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
+
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="HospitalNoShow.BlazorClient.styles.css" rel="stylesheet" />
+    <link rel="preload" id="webassembly" />
+    <script type="importmap"></script>
+
+    <style>
+        /* Global reset */
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Scrollbar stilизации */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #1976d2; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #0d47a1; }
+
+        /* Loading ekranı */
+        #app svg.loading-progress {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        #app svg.loading-progress circle {
+            fill: none;
+            stroke: #1976d2;
+            stroke-width: 0.1rem;
+            transform-origin: 50% 50%;
+        }
+        #app svg.loading-progress circle:last-child {
+            stroke-dasharray: calc(3.141 * var(--blazor-load-percentage, 0%) * 0.8), 500%;
+            stroke-linecap: round;
+            animation: loading-progress-spin 1s linear infinite;
+        }
+        @keyframes loading-progress-spin { to { transform: rotate(360deg); } }
+
+        #blazor-error-ui {
+            background: #ffcc00;
+            border: 1px solid #fd7e14;
+            border-radius: 8px;
+            bottom: 1rem;
+            display: none;
+            left: 50%;
+            padding: 0.75rem;
+            position: fixed;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+        #blazor-error-ui.blazor-error-boundary { display: block; }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <svg class="loading-progress" style="width:6rem;height:6rem">
+            <circle r="40%" cx="50%" cy="50%" />
+            <circle r="40%" cx="50%" cy="50%" />
+        </svg>
+        <div style="text-align:center;margin-top:1rem;color:#1976d2;font-family:Inter,sans-serif;">
+            Yükleniyor...
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        Beklenmeyen bir hata oluştu.
+        <a href="." class="reload">Yenile</a>
+        <span class="dismiss">✕</span>
+    </div>
+
+    <!-- MudBlazor JS -->
+    <script src="_content/MudBlazor/MudBlazor.min.js"></script>
+    <script src="_framework/blazor.webassembly#[.{fingerprint}].js"></script>
+</body>
+
+</html>
