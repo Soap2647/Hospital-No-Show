@@ -1,37 +1,30 @@
-# 🏥 Hospital No-Show Analysis
+# Hospital No-Show Prediction and Management System
 
-[![Category](https://img.shields.io/badge/Category-Data_Analysis_%26_System_Dev-success.svg)](#)
+🇬🇧 **English:**
+A comprehensive full-stack management system designed to track hospital appointments and predict patient no-shows. Built using C# and .NET with Blazor Server for the frontend, it integrates with a database to visualize appointment statistics, manage patient records, and optimize hospital scheduling workflows.
 
-*A system and analysis tool related to hospital appointment no-shows / Hastane randevularına gelmeme durumu analizi ve sistemi*
+🇹🇷 **Türkçe:**
+Hastane randevularını takip etmek ve hastaların randevuya gelmeme (no-show) ihtimallerini analiz etmek amacıyla tasarlanmış kapsamlı bir tam yığın (full-stack) yönetim sistemidir. C#, .NET ve arayüz için Blazor Server kullanılarak geliştirilmiştir. Randevu istatistiklerini görselleştirmek, hasta kayıtlarını yönetmek ve hastane planlama iş akışlarını optimize etmek için veritabanı ile entegre çalışır.
 
----
+## Features / Özellikler
 
-## 🇬🇧 English
+- **Dashboard:** Visual charts and KPI metrics for daily/monthly appointments.
+- **Appointment Tracking:** Efficient grids to manage thousands of patient records.
+- **No-Show Analysis:** Highlights patients with high likelihoods of missing appointments.
+- **REST API Integration:** Modern backend services for fetching and aggregating data.
 
-### Overview
-This project studies the phenomena of "No-Shows" in hospital appointments. It analyzes various metrics, predicts potential no-shows based on data factors, and provides a systematic dashboard to manage and view patient appointments effectively.
+## Technologies Used / Kullanılan Teknolojiler
 
-### Key Features
-- Comprehensive dashboard for tracking appointments
-- Data extraction, cleaning, and predictive analysis
-- Intuitive user interface for hospital administrators
-- Efficient backend processing for large datasets
+- **C# / .NET 8.0**
+- **Blazor Server**
+- **Entity Framework Core**
+- **SQL Server / SQLite**
 
-### Getting Started
-To run the system, navigate to the specific project folder, restore the required dependencies, and initialize the local server. Make sure you have your local database configured to accept the imported data schemas.
+## Setup and Execution / Kurulum ve Çalıştırma
 
----
-
-## 🇹🇷 Türkçe
-
-### Genel Bakış
-Bu proje, hastane randevularına "Gelmeme" (No-Show) durumlarını inceleyen ve tahminleyen bir sistemdir. Çeşitli verileri analiz ederek potansiyel aksaklıkları tespit etmeyi ve hastane yöneticilerine kapsamlı bir panel sunmayı amaçlar.
-
-### Temel Özellikler
-- Randevuları takip etmek için kapsamlı gösterge paneli
-- Veri çekme, temizleme ve tahmin analizi
-- Hastane yöneticileri için sezgisel kullanıcı arayüzü
-- Büyük veri setleri için verimli arka plan işleme
-
-### Başlangıç
-Sistemi çalıştırmak için proje klasörüne gidin, gerekli bağımlılıkları yükleyin ve yerel sunucuyu başlatın. Veri şemalarını sisteme aktarmak için yerel veritabanınızın (SQL) doğru yapılandırıldığından emin olun.
+1. Clone the repository / Depoyu klonlayın.
+2. Update the connection string in `appsettings.json` / Veritabanı bağlantı dizesini ayarlayın.
+3. Run the project / Projeyi çalıştırın:
+   ```bash
+   dotnet run
+   ```
